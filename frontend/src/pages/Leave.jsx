@@ -380,32 +380,46 @@ function Leave() {
     }
 
     /* -------------------------------------------------------
-       EMPLOYEE / HR OWN PROFILE PROTECTION
-    ------------------------------------------------------- */
+   EMPLOYEE / HR OWN PROFILE PROTECTION
 
-    if (isEmployee || isHR) {
-      const ownEmployeeId =
-        user?.employeeId ||
-        employees.find(
-          (employee) =>
-            user?.email &&
-            employee?.email?.toLowerCase() ===
-              user.email.toLowerCase()
-        )?._id;
+   IMPORTANT:
+   This check applies ONLY when creating a NEW leave.
 
-      if (
-        !ownEmployeeId ||
-        String(form.employeeId) !== String(ownEmployeeId)
-      ) {
-        alert(
-          isHR
-            ? "HR can only apply for leave for their own profile."
-            : "You can only apply for leave for your own profile."
-        );
+   Employee:
+   - Can apply only for their own leave.
 
-        return;
-      }
-    }
+   HR:
+   - Can apply only for their own leave.
+   - CAN approve/reject Employee leave.
+   - CANNOT approve/reject HR leave.
+
+   Admin:
+   - No restriction here.
+------------------------------------------------------- */
+
+if (!editingLeave && (isEmployee || isHR)) {
+  const ownEmployeeId =
+    user?.employeeId ||
+    employees.find(
+      (employee) =>
+        user?.email &&
+        employee?.email?.toLowerCase() ===
+          user.email.toLowerCase()
+    )?._id;
+
+  if (
+    !ownEmployeeId ||
+    String(form.employeeId) !== String(ownEmployeeId)
+  ) {
+    alert(
+      isHR
+        ? "HR can only apply for leave for their own profile."
+        : "You can only apply for leave for your own profile."
+    );
+
+    return;
+  }
+}
 
     /* -------------------------------------------------------
        REQUIRED FIELDS
