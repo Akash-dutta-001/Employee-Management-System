@@ -634,7 +634,7 @@ const handleDeleteDocument = async (documentId) => {
 const getDocumentUrl = (fileUrl) => {
   if (!fileUrl) return "";
 
-  return `http://localhost:5000${fileUrl}`;
+return `https://employeehub-backend-y0r.onrender.com${fileUrl}`;
 };
 
 /* =========================================================
