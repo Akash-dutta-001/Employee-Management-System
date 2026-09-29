@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const API = axios.create({
-baseURL: "https://employeehub-backend-y0r.onrender.com/api"});
+baseURL: "https://employeehub-backend-v0r.onrender.com/api"});
 
 // Add the JWT token to every payroll request.
 API.interceptors.request.use(
