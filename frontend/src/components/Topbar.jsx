@@ -1,14 +1,16 @@
+
 import { useState } from "react";
 import {
   Bell,
   ChevronDown,
   LogOut,
   User,
+  Menu,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 
-function Topbar() {
+function Topbar({ onMenuClick = () => {} }) {
   const navigate = useNavigate();
   const { user, logout } = useAuth();
 
@@ -21,29 +23,36 @@ function Topbar() {
   };
 
   return (
-    <header className="fixed left-64 right-0 top-0 z-40 h-16 border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-      <div className="flex h-full items-center justify-between px-6">
+    <header className="fixed left-0 right-0 top-0 z-40 h-16 border-b border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900 lg:left-64">
+      <div className="flex h-full items-center justify-between px-4 sm:px-6">
 
-        {/* =====================================================
-            LEFT
-        ===================================================== */}
+        {/* LEFT */}
 
-        <div>
-          <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
+        <div className="flex min-w-0 items-center gap-3">
+          {/* MOBILE MENU BUTTON */}
+          <button
+            type="button"
+            onClick={onMenuClick}
+            aria-label="Open navigation menu"
+            className="shrink-0 rounded-lg p-2 text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white lg:hidden"
+          >
+            <Menu size={22} />
+          </button>
+
+          <p className="truncate text-xs font-medium text-slate-500 dark:text-slate-400 sm:text-sm">
             Employee Management System
           </p>
         </div>
 
-        {/* =====================================================
-            RIGHT
-        ===================================================== */}
+        {/* RIGHT */}
 
-        <div className="flex items-center gap-4">
+        <div className="flex shrink-0 items-center gap-2 sm:gap-4">
 
           {/* Notifications */}
 
           <button
             type="button"
+            aria-label="Notifications"
             className="relative rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-white"
           >
             <Bell size={20} />
@@ -54,16 +63,16 @@ function Topbar() {
           {/* User Menu */}
 
           <div className="relative">
-
             <button
               type="button"
               onClick={() => setMenuOpen(!menuOpen)}
-              className="flex items-center gap-3 rounded-lg px-2 py-1.5 transition hover:bg-slate-100 dark:hover:bg-slate-800"
+              aria-expanded={menuOpen}
+              className="flex items-center gap-2 rounded-lg px-1.5 py-1.5 transition hover:bg-slate-100 dark:hover:bg-slate-800 sm:gap-3 sm:px-2"
             >
 
               {/* Avatar */}
 
-              <div className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 text-sm font-semibold text-white">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-blue-600 text-sm font-semibold text-white">
                 {user?.name
                   ? user.name.charAt(0).toUpperCase()
                   : "U"}
@@ -87,82 +96,81 @@ function Topbar() {
                   menuOpen ? "rotate-180" : ""
                 }`}
               />
-
             </button>
 
-            {/* =================================================
-                DROPDOWN
-            ================================================= */}
+            {/* DROPDOWN */}
 
             {menuOpen && (
-              <div className="absolute right-0 top-12 w-64 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900">
-
-                {/* User Header */}
-
-                <div className="border-b border-slate-200 px-4 py-4 dark:border-slate-700">
-
-                  <div className="flex items-center gap-3">
-
-                    <div className="flex h-10 w-10 items-center justify-center rounded-full bg-blue-600 font-semibold text-white">
-                      {user?.name
-                        ? user.name.charAt(0).toUpperCase()
-                        : "U"}
-                    </div>
-
-                    <div className="min-w-0">
-                      <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">
-                        {user?.name || "User"}
-                      </p>
-
-                      <p className="truncate text-xs text-slate-500 dark:text-slate-400">
-                        {user?.email || ""}
-                      </p>
-                    </div>
-
-                  </div>
-
-                  {/* Role */}
-
-                  <div className="mt-3">
-                    <span className="inline-flex rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-400">
-                      {user?.role || "Employee"}
-                    </span>
-                  </div>
-
-                </div>
-
-                {/* Profile */}
-
+              <>
+                {/* Close dropdown when clicking outside */}
                 <button
                   type="button"
-                  onClick={() => {
-                    setMenuOpen(false);
-                    navigate("/settings");
-                  }}
-                  className="flex w-full items-center gap-3 px-4 py-3 text-sm text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
-                >
-                  <User size={17} />
-                  Profile & Settings
-                </button>
+                  aria-label="Close user menu"
+                  onClick={() => setMenuOpen(false)}
+                  className="fixed inset-0 z-40 cursor-default"
+                />
 
-                {/* Logout */}
+                <div className="absolute right-0 top-12 z-50 w-[min(16rem,calc(100vw-2rem))] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-xl dark:border-slate-700 dark:bg-slate-900">
 
-                <div className="border-t border-slate-200 p-2 dark:border-slate-700">
+                  {/* User Header */}
+
+                  <div className="border-b border-slate-200 px-4 py-4 dark:border-slate-700">
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-600 font-semibold text-white">
+                        {user?.name
+                          ? user.name.charAt(0).toUpperCase()
+                          : "U"}
+                      </div>
+
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-semibold text-slate-900 dark:text-white">
+                          {user?.name || "User"}
+                        </p>
+
+                        <p className="truncate text-xs text-slate-500 dark:text-slate-400">
+                          {user?.email || ""}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Role */}
+
+                    <div className="mt-3">
+                      <span className="inline-flex rounded-full bg-blue-100 px-2.5 py-1 text-xs font-medium text-blue-700 dark:bg-blue-950 dark:text-blue-400">
+                        {user?.role || "Employee"}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Profile */}
 
                   <button
                     type="button"
-                    onClick={handleLogout}
-                    className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
+                    onClick={() => {
+                      setMenuOpen(false);
+                      navigate("/settings");
+                    }}
+                    className="flex w-full items-center gap-3 px-4 py-3 text-sm text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
                   >
-                    <LogOut size={17} />
-                    Logout
+                    <User size={17} />
+                    Profile & Settings
                   </button>
 
+                  {/* Logout */}
+
+                  <div className="border-t border-slate-200 p-2 dark:border-slate-700">
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-red-600 transition hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-950/40"
+                    >
+                      <LogOut size={17} />
+                      Logout
+                    </button>
+                  </div>
                 </div>
-
-              </div>
+              </>
             )}
-
           </div>
         </div>
       </div>

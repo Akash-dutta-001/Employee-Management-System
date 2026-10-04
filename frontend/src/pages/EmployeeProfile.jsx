@@ -138,7 +138,7 @@ ATTENDANCE MODAL
   /* =========================================================
   LOAD EMPLOYEE
   ========================================================= */
-  
+
   // Load employee profile
   useEffect(() => {
     loadEmployee();
@@ -986,7 +986,7 @@ TASK FUNCTIONS
     "Documents",
   ];
   return (
-    <div className="text-slate-900 dark:text-white">
+    <div className="min-w-0 text-slate-900 dark:text-white">
       {/* =====================================================
 BACK BUTTON
 ===================================================== */}
@@ -1000,7 +1000,7 @@ BACK BUTTON
       {/* =====================================================
 PROFILE HEADER
 ===================================================== */}
-      <div className="rounded-2xl bg-white p-6 shadow-sm dark:bg-slate-800">
+      <div className="rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-800 sm:p-6">
         <div className="flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-4">
             <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-full bg-blue-600 text-2xl font-bold text-white">
@@ -1013,7 +1013,7 @@ PROFILE HEADER
                   .toUpperCase()}
             </div>
             <div>
-<h1 className="text-2xl font-bold text-slate-900 dark:text-white">
+<h1 className="break-words text-xl font-bold text-slate-900 dark:text-white sm:text-2xl">
                 {employee.name}
               </h1>
               <p className="mt-1 text-slate-500 dark:text-slate-400">
@@ -1096,7 +1096,7 @@ OVERVIEW
                 </div>
               </div>
 
-              <div className="rounded-2xl bg-white p-6 shadow-sm dark:bg-slate-800">
+              <div className="rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-800 sm:p-6">
                 <h2 className="text-lg font-bold text-slate-900 dark:text-white">
                   Work Summary
                 </h2>
@@ -1184,7 +1184,7 @@ ATTENDANCE
               />
             </div>
             {/* Attendance Percentage */}
-            <div className="rounded-2xl bg-white p-6 shadow-sm dark:bg-slate-800">
+            <div className="rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-800 sm:p-6">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
@@ -1230,7 +1230,7 @@ ATTENDANCE
                   </p>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto overscroll-x-contain">
                   <table className="w-full min-w-[950px] text-left">
                     <thead>
                       <tr className="border-b border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900/50">
@@ -1496,7 +1496,7 @@ LEAVE
               ["Approved", leaves.filter((leave) => leave.status === "Approved").length, "text-green-600"],
               ["Rejected", leaves.filter((leave) => leave.status === "Rejected").length, "text-red-600"],
             ].map(([label, value, valueClass]) => (
-              <div key={label} className="rounded-2xl bg-white p-5 shadow-sm dark:bg-slate-800">
+              <div key={label} className="rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-800 sm:p-5">
                 <p className="text-sm text-slate-500 dark:text-slate-400">{label}</p>
                 <p className={`mt-1 text-2xl font-bold ${valueClass}`}>{value}</p>
               </div>
@@ -1514,7 +1514,7 @@ LEAVE
                   No leave records
                 </h3>
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-                  Click &quot;Apply Leave&quot; to add the first leave request.
+                  Click "Apply Leave" to add the first leave request.
                 </p>
               </div>
             ) : (
@@ -1604,13 +1604,13 @@ PERFORMANCE
               )}
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-              <div className="rounded-2xl bg-white p-5 shadow-sm dark:bg-slate-800">
+              <div className="rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-800 sm:p-5">
                 <p className="text-sm text-slate-500 dark:text-slate-400">Total Reviews</p>
                 <p className="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
                   {performanceStats.total}
                 </p>
               </div>
-              <div className="rounded-2xl bg-white p-5 shadow-sm dark:bg-slate-800">
+              <div className="rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-800 sm:p-5">
                 <p className="text-sm text-slate-500 dark:text-slate-400">Average Rating</p>
                 <p className="mt-1 text-2xl font-bold text-yellow-600">
                   {performanceStats.averageRating}/5
@@ -1760,7 +1760,7 @@ DOCUMENTS
                   </button>
                 </div>
               ) : (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto overscroll-x-contain">
                   <table className="w-full min-w-[1000px] text-left">
                     <thead>
                       <tr className="border-b border-slate-200 bg-slate-50 dark:border-slate-700 dark:bg-slate-900/50">
@@ -1862,9 +1862,9 @@ DOCUMENTS
 PERFORMANCE REVIEW MODAL
 ===================================================== */}
       {showDocumentModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white shadow-xl dark:bg-slate-800">
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5 dark:border-slate-700">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 sm:p-4">
+          <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white shadow-xl dark:bg-slate-800 sm:max-h-[90dvh]">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4 dark:border-slate-700 sm:px-6 sm:py-5">
               <div>
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white">
                   {editingDocument ? "Edit Document" : "Upload Document"}
@@ -1880,7 +1880,7 @@ PERFORMANCE REVIEW MODAL
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={handleDocumentSubmit} className="space-y-5 p-6">
+            <form onSubmit={handleDocumentSubmit} className="space-y-5 p-4 sm:p-6">
               <FormInput
                 label="Document Name"
                 name="documentName"
@@ -1960,19 +1960,19 @@ PERFORMANCE REVIEW MODAL
                   </p>
                 )}
               </div>
-<div className="flex justify-end gap-3 border-t border-slate-200 pt-5 dark:border-slate-700">
+<div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 dark:border-slate-700 sm:flex-row sm:justify-end">
                 <button
                   type="button"
                   onClick={closeDocumentModal}
                   disabled={documentLoading}
-                  className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+                  className="w-full rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700 sm:w-auto"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={documentLoading}
-                  className="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                 >
                   {documentLoading ? (
                     <>
@@ -1992,9 +1992,9 @@ PERFORMANCE REVIEW MODAL
         </div>
       )}
       {showPerformanceModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white shadow-xl dark:bg-slate-800">
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5 dark:border-slate-700">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 sm:p-4">
+          <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white shadow-xl dark:bg-slate-800 sm:max-h-[90dvh]">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4 dark:border-slate-700 sm:px-6 sm:py-5">
               <div>
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white">
                   {editingPerformance ? "Edit Performance Review" : "Add Performance Review"}
@@ -2008,7 +2008,7 @@ PERFORMANCE REVIEW MODAL
                 <X size={20} />
               </button>
             </div>
-            <form onSubmit={handlePerformanceSubmit} className="space-y-5 p-6">
+            <form onSubmit={handlePerformanceSubmit} className="space-y-5 p-4 sm:p-6">
               <div className="grid gap-5 md:grid-cols-2">
                 <FormInput
                   label="Review Date"
@@ -2063,19 +2063,19 @@ PERFORMANCE REVIEW MODAL
                   className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-blue-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
                 />
               </div>
-              <div className="flex justify-end gap-3 border-t border-slate-200 pt-5 dark:border-slate-700">
+              <div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 dark:border-slate-700 sm:flex-row sm:justify-end">
                 <button
                   type="button"
                   onClick={closePerformanceModal}
                   disabled={performanceLoading}
-                  className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+                  className="w-full rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700 sm:w-auto"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={performanceLoading}
-                  className="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                 >
                   {performanceLoading ? (
                     <>
@@ -2098,9 +2098,9 @@ PERFORMANCE REVIEW MODAL
 CREATE TASK MODAL
 ===================================================== */}
       {showTaskModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white shadow-xl dark:bg-slate-800">
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5 dark:border-slate-700">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 sm:p-4">
+          <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white shadow-xl dark:bg-slate-800 sm:max-h-[90dvh]">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4 dark:border-slate-700 sm:px-6 sm:py-5">
               <div>
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white">
                   Create Task
@@ -2118,7 +2118,7 @@ CREATE TASK MODAL
             </div>
             <form
               onSubmit={handleCreateTask}
-              className="space-y-5 p-6"
+              className="space-y-5 p-4 sm:p-6"
             >
               <FormInput
                 label="Task Title"
@@ -2180,7 +2180,7 @@ CREATE TASK MODAL
                   min="0"
                 />
               </div>
-              <div className="flex justify-end gap-3 border-t border-slate-200 pt-5 dark:border-slate-700">
+              <div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 dark:border-slate-700 sm:flex-row sm:justify-end">
                 <button
                   type="button"
                   onClick={closeTaskModal}
@@ -2191,7 +2191,7 @@ CREATE TASK MODAL
                 <button
                   type="submit"
                   disabled={taskLoading}
-                  className="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-60 sm:w-auto"
                 >
                   {taskLoading ? (
                     <>
@@ -2214,9 +2214,9 @@ CREATE TASK MODAL
 ATTENDANCE MODAL
 ===================================================== */}
       {showAttendanceModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white shadow-xl dark:bg-slate-800">
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5 dark:border-slate-700">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-2 sm:p-4">
+          <div className="max-h-[90vh] w-full max-w-xl overflow-y-auto rounded-2xl bg-white shadow-xl dark:bg-slate-800 sm:max-h-[90dvh]">
+            <div className="flex items-center justify-between border-b border-slate-200 px-4 py-4 dark:border-slate-700 sm:px-6 sm:py-5">
               <div>
                 <h2 className="text-xl font-bold text-slate-900 dark:text-white">
                   {editingAttendance
@@ -2236,7 +2236,7 @@ ATTENDANCE MODAL
             </div>
             <form
               onSubmit={handleAttendanceSubmit}
-              className="space-y-5 p-6"
+              className="space-y-5 p-4 sm:p-6"
             >
               <FormInput label="Date"
                 name="date"
@@ -2294,19 +2294,19 @@ ATTENDANCE MODAL
                   className="w-full rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm outline-none focus:border-blue-500 dark:border-slate-600 dark:bg-slate-700 dark:text-white"
                 />
               </div>
-              <div className="flex justify-end gap-3 border-t border-slate-200 pt-5 dark:border-slate-700">
+              <div className="flex flex-col-reverse gap-3 border-t border-slate-200 pt-5 dark:border-slate-700 sm:flex-row sm:justify-end">
                 <button
                   type="button"
                   onClick={closeAttendanceModal}
                   disabled={attendanceLoading}
-                  className="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700"
+                  className="w-full rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-700 sm:w-auto"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={attendanceLoading}
-                  className="flex items-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 sm:w-auto"
                 >
                   {attendanceLoading ? (
                     <>
@@ -2386,7 +2386,7 @@ function AttendanceStat({
   value,
 }) {
   return (
-    <div className="rounded-2xl bg-white p-5 shadow-sm dark:bg-slate-800">
+    <div className="rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-800 sm:p-5">
       <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
         {icon}
       </div>
@@ -2429,7 +2429,7 @@ function TaskStat({
   value,
 }) {
   return (
-    <div className="rounded-2xl bg-white p-5 shadow-sm dark:bg-slate-800">
+    <div className="rounded-2xl bg-white p-4 shadow-sm dark:bg-slate-800 sm:p-5">
       <p className="text-sm text-slate-500 dark:text-slate-400">
         {label}
       </p>
@@ -2470,7 +2470,7 @@ function EmptySection({
   description,
 }) {
   return (
-    <div className="rounded-2xl bg-white p-12 text-center shadow-sm dark:bg-slate-800"> <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
+    <div className="rounded-2xl bg-white p-8 text-center shadow-sm dark:bg-slate-800 sm:p-12"> <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400">
       {icon}
     </div>
       <h2 className="mt-5 text-xl font-bold text-slate-900 dark:text-white">
