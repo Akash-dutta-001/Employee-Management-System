@@ -1,3 +1,4 @@
+
 const User = require("../models/User");
 const Employee = require("../models/Employee");
 const bcrypt = require("bcryptjs");
@@ -27,8 +28,13 @@ const generateToken = (user) => {
   );
 };
 
-const ensureEmployeeProfile = async (user, { activate = true } = {}) => {
-  if (!user || !["Admin", "HR"].includes(user.role)) return null;
+const ensureEmployeeProfile = async (
+  user,
+  { activate = true } = {}
+) => {
+  if (!user || !["Admin", "HR"].includes(user.role)) {
+    return null;
+  }
 
   let employee = null;
 
@@ -37,7 +43,9 @@ const ensureEmployeeProfile = async (user, { activate = true } = {}) => {
   }
 
   if (!employee) {
-    employee = await Employee.findOne({ email: user.email });
+    employee = await Employee.findOne({
+      email: user.email,
+    });
   }
 
   if (!employee) {
@@ -46,7 +54,9 @@ const ensureEmployeeProfile = async (user, { activate = true } = {}) => {
       role: user.role === "Admin" ? "Administrator" : "HR",
       department:
         user.department ||
-        (user.role === "Admin" ? "Administration" : "Human Resources"),
+        (user.role === "Admin"
+          ? "Administration"
+          : "Human Resources"),
       email: user.email,
       status: activate ? "Active" : "Inactive",
     });
@@ -80,6 +90,7 @@ HR:
 - Account is stored as Pending.
 - Admin must approve it before login is allowed.
 */
+
 const register = async (req, res) => {
   try {
     const {
@@ -185,120 +196,67 @@ const register = async (req, res) => {
       });
     }
 
-// =====================================================
-// HR REGISTRATION
-// =====================================================
+    // =====================================================
+    // HR REGISTRATION
+    // =====================================================
 
-if (normalizedRole === "HR") {
+    if (normalizedRole === "HR") {
+      // Department is optional during public HR registration.
+      const hrDepartment =
+        department?.trim() || "Human Resources";
 
-  // Department is OPTIONAL during public HR registration.
-  // If no department is entered, use Human Resources.
-  const hrDepartment =
-    department?.trim() || "Human Resources";
+      const existingEmployee = await Employee.findOne({
+        email: normalizedEmail,
+      });
 
-  // ---------------------------------------------------
-  // CHECK FOR EXISTING EMPLOYEE PROFILE
-  // ---------------------------------------------------
+      if (existingEmployee) {
+        return res.status(400).json({
+          message:
+            "An Employee Profile already exists with this email.",
+        });
+      }
 
-  const existingEmployee = await Employee.findOne({
-    email: normalizedEmail,
-  });
+      // HR is also an employee in EmployeeHub.
+      const employee = await Employee.create({
+        name: name.trim(),
+        role: "HR",
+        department: hrDepartment,
+        email: normalizedEmail,
+        status: "Active",
+      });
 
-  if (existingEmployee) {
-    return res.status(400).json({
-      message:
-        "An Employee Profile already exists with this email.",
-    });
-  }
+      try {
+        const user = await User.create({
+          name: name.trim(),
+          email: normalizedEmail,
+          password: hashedPassword,
+          role: "HR",
+          employee: employee._id,
+          department: hrDepartment,
+          registrationStatus: "Pending",
+          isActive: false,
+        });
 
-  // ---------------------------------------------------
-  // CREATE EMPLOYEE PROFILE FOR HR
-  // ---------------------------------------------------
-
-  // HR is also an employee in EmployeeHub.
-  // No Employee/Profile ID is required.
-
-  const employee = await Employee.create({
-    name: name.trim(),
-
-    // HR's position inside Employee collection
-    role: "HR",
-
-    department: hrDepartment,
-
-    email: normalizedEmail,
-
-    // HR profile exists immediately.
-    // HR login still requires Admin approval.
-    status: "Active",
-  });
-
-  try {
-
-    // -------------------------------------------------
-    // CREATE HR USER ACCOUNT
-    // -------------------------------------------------
-
-    const user = await User.create({
-      name: name.trim(),
-
-      email: normalizedEmail,
-
-      password: hashedPassword,
-
-      role: "HR",
-
-      // IMPORTANT:
-      // Link HR User -> Employee Profile
-      employee: employee._id,
-
-      department: hrDepartment,
-
-      // HR must be approved by Admin
-      registrationStatus: "Pending",
-
-      // HR cannot login until approved
-      isActive: false,
-    });
-
-    // -------------------------------------------------
-    // SUCCESS
-    // -------------------------------------------------
-
-    return res.status(201).json({
-      message:
-        "HR account and Employee profile created successfully and is pending Admin verification",
-
-      pendingApproval: true,
-
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-
-        // Employee Profile ID
-        employee: user.employee,
-
-        department: user.department,
-
-        registrationStatus:
-          user.registrationStatus,
-      },
-    });
-
-  } catch (userError) {
-
-    // If User creation fails,
-    // remove the Employee profile.
-    await Employee.findByIdAndDelete(
-      employee._id
-    );
-
-    throw userError;
-  }
-}
-
+        return res.status(201).json({
+          message:
+            "HR account and Employee profile created successfully and is pending Admin verification",
+          pendingApproval: true,
+          user: {
+            id: user._id,
+            name: user.name,
+            email: user.email,
+            role: user.role,
+            employee: user.employee,
+            department: user.department,
+            registrationStatus: user.registrationStatus,
+          },
+        });
+      } catch (userError) {
+        // Remove the Employee profile if User creation fails.
+        await Employee.findByIdAndDelete(employee._id);
+        throw userError;
+      }
+    }
   } catch (error) {
     console.error("Registration error:", error);
 
@@ -309,7 +267,24 @@ if (normalizedRole === "HR") {
   }
 };
 
+// =========================================================
+// LOGIN WITH PERFORMANCE TIMING
+// =========================================================
+
 const login = async (req, res) => {
+  const loginStart = Date.now();
+  let lastStep = loginStart;
+
+  const logLoginStep = (step) => {
+    const now = Date.now();
+
+    console.log(
+      `[LOGIN TIMING] ${step}: ${now - lastStep} ms`
+    );
+
+    lastStep = now;
+  };
+
   try {
     const { email, password } = req.body;
 
@@ -321,9 +296,12 @@ const login = async (req, res) => {
 
     const normalizedEmail = email.trim().toLowerCase();
 
+    // 1. Find user in MongoDB
     const user = await User.findOne({
       email: normalizedEmail,
     });
+
+    logLoginStep("User database lookup");
 
     if (!user) {
       return res.status(401).json({
@@ -331,7 +309,13 @@ const login = async (req, res) => {
       });
     }
 
-    const isPasswordValid = await bcrypt.compare(password, user.password);
+    // 2. Compare password
+    const isPasswordValid = await bcrypt.compare(
+      password,
+      user.password
+    );
+
+    logLoginStep("Password comparison");
 
     if (!isPasswordValid) {
       return res.status(401).json({
@@ -339,6 +323,7 @@ const login = async (req, res) => {
       });
     }
 
+    // 3. Normalize role
     const normalizedRole = normalizeRole(user.role);
 
     if (!normalizedRole) {
@@ -347,9 +332,7 @@ const login = async (req, res) => {
       });
     }
 
-    // -----------------------------------------------------
-    // HR APPROVAL CHECK
-    // -----------------------------------------------------
+    // 4. Check HR approval
     if (
       normalizedRole === "HR" &&
       user.registrationStatus !== "Approved"
@@ -367,24 +350,34 @@ const login = async (req, res) => {
       });
     }
 
+    // 5. Check whether account is active
     if (user.isActive === false) {
       return res.status(403).json({
         message: "Your account is inactive",
       });
     }
 
-    // Admin and HR are also employee records. Repair older accounts
-    // that were created before this relationship was enforced.
-    if (normalizedRole === "Admin" || normalizedRole === "HR") {
-      await ensureEmployeeProfile(user, { activate: true });
+    // 6. Ensure Admin and HR have Employee profiles
+    if (
+      normalizedRole === "Admin" ||
+      normalizedRole === "HR"
+    ) {
+      await ensureEmployeeProfile(user, {
+        activate: true,
+      });
+
+      logLoginStep("Ensure employee profile");
     }
 
+    // 7. Save normalized role if needed
     if (user.role !== normalizedRole) {
       user.role = normalizedRole;
       await user.save();
     }
 
-    // Employee users must have their automatically created profile.
+    logLoginStep("Role normalization and save");
+
+    // 8. Check Employee profile for Employee accounts
     if (normalizedRole === "Employee") {
       if (!user.employee) {
         return res.status(403).json({
@@ -393,7 +386,11 @@ const login = async (req, res) => {
         });
       }
 
-      const employee = await Employee.findById(user.employee);
+      const employee = await Employee.findById(
+        user.employee
+      );
+
+      logLoginStep("Employee profile lookup");
 
       if (!employee) {
         return res.status(403).json({
@@ -402,8 +399,12 @@ const login = async (req, res) => {
       }
     }
 
+    // 9. Generate JWT
     const token = generateToken(user);
 
+    logLoginStep("JWT generation");
+
+    // 10. Send login response
     return res.status(200).json({
       message: "Login successful",
       token,
@@ -424,8 +425,16 @@ const login = async (req, res) => {
       message: "Login failed",
       error: error.message,
     });
+  } finally {
+    console.log(
+      `[LOGIN TIMING] Total: ${Date.now() - loginStart} ms`
+    );
   }
 };
+
+// =========================================================
+// GET CURRENT USER
+// =========================================================
 
 const getMe = async (req, res) => {
   try {
@@ -449,7 +458,10 @@ const getMe = async (req, res) => {
     }
 
     if (user.role === "Admin" || user.role === "HR") {
-      await ensureEmployeeProfile(user, { activate: true });
+      await ensureEmployeeProfile(user, {
+        activate: true,
+      });
+
       await user.populate("employee");
     }
 
@@ -465,11 +477,9 @@ const getMe = async (req, res) => {
   }
 };
 
-/*
-=========================================================
-ADMIN: HR VERIFICATION
-=========================================================
-*/
+// =========================================================
+// ADMIN: HR VERIFICATION
+// =========================================================
 
 const getHrRequests = async (req, res) => {
   try {
@@ -517,25 +527,19 @@ const approveHr = async (req, res) => {
       });
     }
 
-    // =====================================================
-    // REPAIR / CREATE EMPLOYEE PROFILE
-    // =====================================================
-
+    // Repair or create Employee profile
     let employee = null;
 
-    // Existing linked Employee
     if (user.employee) {
       employee = await Employee.findById(user.employee);
     }
 
-    // Try finding by email for older HR accounts
     if (!employee) {
       employee = await Employee.findOne({
         email: user.email,
       });
     }
 
-    // Create Employee profile if it doesn't exist
     if (!employee) {
       employee = await Employee.create({
         name: user.name,
@@ -547,16 +551,10 @@ const approveHr = async (req, res) => {
       });
     }
 
-    // =====================================================
-    // LINK USER TO EMPLOYEE
-    // =====================================================
-
+    // Link User to Employee
     user.employee = employee._id;
 
-    // =====================================================
-    // APPROVE HR
-    // =====================================================
-
+    // Approve HR
     user.registrationStatus = "Approved";
     user.isActive = true;
 
@@ -565,7 +563,6 @@ const approveHr = async (req, res) => {
     return res.status(200).json({
       message:
         "HR account approved and Employee profile linked successfully",
-
       user: {
         id: user._id,
         name: user.name,
@@ -577,7 +574,6 @@ const approveHr = async (req, res) => {
         isActive: user.isActive,
       },
     });
-
   } catch (error) {
     console.error("Approve HR error:", error);
 
@@ -609,6 +605,7 @@ const rejectHr = async (req, res) => {
 
     user.registrationStatus = "Rejected";
     user.isActive = false;
+
     await user.save();
 
     return res.status(200).json({
@@ -622,6 +619,10 @@ const rejectHr = async (req, res) => {
     });
   }
 };
+
+// =========================================================
+// EXPORTS
+// =========================================================
 
 module.exports = {
   register,
