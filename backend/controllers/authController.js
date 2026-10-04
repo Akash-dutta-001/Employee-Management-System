@@ -275,15 +275,23 @@ const login = async (req, res) => {
   const loginStart = Date.now();
   let lastStep = loginStart;
 
+  const requestId = `${Date.now()}-${Math.random()
+    .toString(36)
+    .slice(2, 7)}`;
+
   const logLoginStep = (step) => {
     const now = Date.now();
 
     console.log(
-      `[LOGIN TIMING] ${step}: ${now - lastStep} ms`
+      `[LOGIN TIMING][${requestId}] ${step}: ${
+        now - lastStep
+      } ms (elapsed: ${now - loginStart} ms)`
     );
 
     lastStep = now;
   };
+
+  // Keep the existing try/catch and login logic below.
 
   try {
     const { email, password } = req.body;
@@ -425,9 +433,11 @@ const login = async (req, res) => {
       message: "Login failed",
       error: error.message,
     });
-  } finally {
+    } finally {
     console.log(
-      `[LOGIN TIMING] Total: ${Date.now() - loginStart} ms`
+      `[LOGIN TIMING][${requestId}] Total: ${
+        Date.now() - loginStart
+      } ms`
     );
   }
 };
