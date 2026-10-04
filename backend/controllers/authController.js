@@ -275,9 +275,9 @@ const login = async (req, res) => {
   const loginStart = Date.now();
   let lastStep = loginStart;
 
-  const requestId = `${Date.now()}-${Math.random()
-    .toString(36)
-    .slice(2, 7)}`;
+  const requestId =
+  req.requestId ||
+  `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
   const logLoginStep = (step) => {
     const now = Date.now();
