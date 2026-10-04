@@ -1,153 +1,182 @@
+
 import axios from "axios";
 
-/* =========================================================
-   API CONFIGURATION
-========================================================= */
-
 const API = axios.create({
-baseURL: "https://employeehub-backend-y0or.onrender.com/api"});
+  baseURL: "https://employeehub-backend-y0or.onrender.com/api",
+});
 
-/* =========================================================
-   AUTHENTICATION + FORM DATA HANDLING
-========================================================= */
+// =====================================
+// CACHE SETTINGS
+// =====================================
+
+const apiCache = new Map();
+const pendingRequests = new Map();
+const CACHE_DURATION = 15000; // 15 seconds
+
+const clearApiCache = () => {
+  apiCache.clear();
+};
+
+const cachedGet = async (url) => {
+  const token = localStorage.getItem("employeehub_token") || "";
+  const cacheKey = `${token}:${url}`;
+
+  const cached = apiCache.get(cacheKey);
+
+  if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+    return { data: cached.data };
+  }
+
+  if (pendingRequests.has(cacheKey)) {
+    return pendingRequests.get(cacheKey);
+  }
+
+  const request = API.get(url)
+    .then((response) => {
+      apiCache.set(cacheKey, {
+        data: response.data,
+        timestamp: Date.now(),
+      });
+
+      return response;
+    })
+    .finally(() => {
+      pendingRequests.delete(cacheKey);
+    });
+
+  pendingRequests.set(cacheKey, request);
+
+  return request;
+};
+
+// =====================================
+// REQUEST INTERCEPTOR
+// =====================================
 
 API.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem("employeehub_token");
 
+    config.headers = config.headers || {};
+
     if (token) {
-      config.headers = config.headers || {};
       config.headers.Authorization = `Bearer ${token}`;
     }
 
-    // IMPORTANT:
-    // Let Axios/browser automatically set the correct
-    // multipart/form-data Content-Type and boundary.
     if (config.data instanceof FormData) {
       delete config.headers["Content-Type"];
       delete config.headers["content-type"];
     } else {
-      config.headers = config.headers || {};
       config.headers["Content-Type"] = "application/json";
     }
 
     return config;
   },
-  (error) => {
-    return Promise.reject(error);
-  }
+  (error) => Promise.reject(error)
 );
 
-/* =========================================================
-   RESPONSE ERROR HANDLING
-========================================================= */
+// =====================================
+// RESPONSE INTERCEPTOR
+// =====================================
 
 API.interceptors.response.use(
-  (response) => {
-    return response;
-  },
+  (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
-      console.error(
-        "Authentication error:",
-        error.response?.data?.message
-      );
-    }
+    const status = error.response?.status;
 
-    if (error.response?.status === 403) {
-      console.error(
-        "Permission denied:",
-        error.response?.data?.message
-      );
-    }
-
-    if (error.response?.status === 404) {
-      console.error(
-        "API route not found:",
-        error.config?.url
-      );
+    if (status === 401) {
+      console.error("Unauthorized. Please log in again.");
+    } else if (status === 403) {
+      console.error("You do not have permission to perform this action.");
+    } else if (status === 404) {
+      console.error("API endpoint not found:", error.config?.url);
+    } else {
+      console.error("API request failed:", error.message);
     }
 
     return Promise.reject(error);
   }
 );
 
-/* =========================================================
-   EMPLOYEE API
-========================================================= */
+// =====================================
+// EMPLOYEE APIs
+// =====================================
 
 export const getEmployees = async () => {
-  const response = await API.get("/employees");
+  const response = await cachedGet("/employees");
   return response.data;
 };
 
 export const getEmployee = async (id) => {
-  const response = await API.get(`/employees/${id}`);
+  const response = await cachedGet(`/employees/${id}`);
   return response.data;
 };
 
-export const createEmployee = async (employee) => {
-  const response = await API.post("/employees", employee);
+export const createEmployee = async (employeeData) => {
+  const response = await API.post("/employees", employeeData);
+  clearApiCache();
   return response.data;
 };
 
-export const updateEmployee = async (id, employee) => {
-  const response = await API.put(`/employees/${id}`, employee);
+export const updateEmployee = async (id, employeeData) => {
+  const response = await API.put(`/employees/${id}`, employeeData);
+  clearApiCache();
   return response.data;
 };
 
 export const deleteEmployee = async (id) => {
   const response = await API.delete(`/employees/${id}`);
+  clearApiCache();
   return response.data;
 };
 
-/* =========================================================
-   TASK API
-========================================================= */
+// =====================================
+// TASK APIs
+// =====================================
 
 export const getTasks = async (employeeId) => {
-  const response = await API.get(
+  const response = await cachedGet(
     `/employees/${employeeId}/tasks`
   );
   return response.data;
 };
 
-export const createTask = async (employeeId, task) => {
+export const createTask = async (employeeId, taskData) => {
   const response = await API.post(
     `/employees/${employeeId}/tasks`,
-    task
+    taskData
   );
+  clearApiCache();
   return response.data;
 };
 
 export const updateTask = async (
   employeeId,
   taskId,
-  task
+  taskData
 ) => {
   const response = await API.put(
     `/employees/${employeeId}/tasks/${taskId}`,
-    task
+    taskData
   );
+  clearApiCache();
   return response.data;
 };
 
-export const deleteTask = async (
-  employeeId,
-  taskId
-) => {
+export const deleteTask = async (employeeId, taskId) => {
   const response = await API.delete(
     `/employees/${employeeId}/tasks/${taskId}`
   );
+  clearApiCache();
   return response.data;
 };
 
-/* =========================================================
-   ATTENDANCE API
-========================================================= */
+// =====================================
+// ATTENDANCE APIs
+// =====================================
 
 export const getAttendance = async (employeeId) => {
-  const response = await API.get(
+  const response = await cachedGet(
     `/employees/${employeeId}/attendance`
   );
   return response.data;
@@ -155,24 +184,29 @@ export const getAttendance = async (employeeId) => {
 
 export const createAttendance = async (
   employeeId,
-  attendance
+  attendanceData
 ) => {
   const response = await API.post(
     `/employees/${employeeId}/attendance`,
-    attendance
+    attendanceData
   );
+  clearApiCache();
   return response.data;
 };
+
+// Alias for compatibility with existing components
+export const markAttendance = createAttendance;
 
 export const updateAttendance = async (
   employeeId,
   attendanceId,
-  attendance
+  attendanceData
 ) => {
   const response = await API.put(
     `/employees/${employeeId}/attendance/${attendanceId}`,
-    attendance
+    attendanceData
   );
+  clearApiCache();
   return response.data;
 };
 
@@ -183,30 +217,32 @@ export const deleteAttendance = async (
   const response = await API.delete(
     `/employees/${employeeId}/attendance/${attendanceId}`
   );
+  clearApiCache();
   return response.data;
 };
 
-/* =========================================================
-   LEAVE API
-========================================================= */
+// =====================================
+// LEAVE APIs
+// =====================================
 
 export const getLeaves = async (employeeId) => {
-  const response = await API.get(
+  const response = await cachedGet(
     `/employees/${employeeId}/leaves`
   );
   return response.data;
 };
 
-export const createLeave = async (
-  employeeId,
-  leaveData
-) => {
+export const createLeave = async (employeeId, leaveData) => {
   const response = await API.post(
     `/employees/${employeeId}/leaves`,
     leaveData
   );
+  clearApiCache();
   return response.data;
 };
+
+// Alias for compatibility with existing components
+export const applyLeave = createLeave;
 
 export const updateLeave = async (
   employeeId,
@@ -217,27 +253,40 @@ export const updateLeave = async (
     `/employees/${employeeId}/leaves/${leaveId}`,
     leaveData
   );
+  clearApiCache();
   return response.data;
 };
 
-export const deleteLeave = async (
-  employeeId,
-  leaveId
-) => {
+export const approveLeave = async (employeeId, leaveId) => {
+  const response = await API.patch(
+    `/employees/${employeeId}/leaves/${leaveId}/approve`
+  );
+  clearApiCache();
+  return response.data;
+};
+
+export const rejectLeave = async (employeeId, leaveId) => {
+  const response = await API.patch(
+    `/employees/${employeeId}/leaves/${leaveId}/reject`
+  );
+  clearApiCache();
+  return response.data;
+};
+
+export const deleteLeave = async (employeeId, leaveId) => {
   const response = await API.delete(
     `/employees/${employeeId}/leaves/${leaveId}`
   );
+  clearApiCache();
   return response.data;
 };
 
-/* =========================================================
-   PERFORMANCE API
-========================================================= */
+// =====================================
+// PERFORMANCE REVIEW APIs
+// =====================================
 
-export const getPerformanceReviews = async (
-  employeeId
-) => {
-  const response = await API.get(
+export const getPerformanceReviews = async (employeeId) => {
+  const response = await cachedGet(
     `/employees/${employeeId}/performance`
   );
   return response.data;
@@ -245,24 +294,26 @@ export const getPerformanceReviews = async (
 
 export const createPerformanceReview = async (
   employeeId,
-  performanceData
+  reviewData
 ) => {
   const response = await API.post(
     `/employees/${employeeId}/performance`,
-    performanceData
+    reviewData
   );
+  clearApiCache();
   return response.data;
 };
 
 export const updatePerformanceReview = async (
   employeeId,
   reviewId,
-  performanceData
+  reviewData
 ) => {
   const response = await API.put(
     `/employees/${employeeId}/performance/${reviewId}`,
-    performanceData
+    reviewData
   );
+  clearApiCache();
   return response.data;
 };
 
@@ -273,23 +324,20 @@ export const deletePerformanceReview = async (
   const response = await API.delete(
     `/employees/${employeeId}/performance/${reviewId}`
   );
+  clearApiCache();
   return response.data;
 };
 
-/* =========================================================
-   DOCUMENTS API
-========================================================= */
+// =====================================
+// DOCUMENT APIs
+// =====================================
 
 export const getDocuments = async (employeeId) => {
-  const response = await API.get(
+  const response = await cachedGet(
     `/employees/${employeeId}/documents`
   );
   return response.data;
 };
-
-/*
-CREATE / UPLOAD DOCUMENT
-*/
 
 export const createDocument = async (
   employeeId,
@@ -299,13 +347,12 @@ export const createDocument = async (
     `/employees/${employeeId}/documents`,
     documentData
   );
-
+  clearApiCache();
   return response.data;
 };
 
-/*
-UPDATE DOCUMENT
-*/
+// Alias for compatibility with existing components
+export const uploadDocument = createDocument;
 
 export const updateDocument = async (
   employeeId,
@@ -316,13 +363,9 @@ export const updateDocument = async (
     `/employees/${employeeId}/documents/${documentId}`,
     documentData
   );
-
+  clearApiCache();
   return response.data;
 };
-
-/*
-DELETE DOCUMENT
-*/
 
 export const deleteDocument = async (
   employeeId,
@@ -331,12 +374,12 @@ export const deleteDocument = async (
   const response = await API.delete(
     `/employees/${employeeId}/documents/${documentId}`
   );
-
+  clearApiCache();
   return response.data;
 };
 
-/* =========================================================
-   EXPORT
-========================================================= */
+// =====================================
+// DEFAULT EXPORT
+// =====================================
 
 export default API;

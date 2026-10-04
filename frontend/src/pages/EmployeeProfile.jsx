@@ -138,22 +138,31 @@ ATTENDANCE MODAL
   /* =========================================================
   LOAD EMPLOYEE
   ========================================================= */
+  
+  // Load employee profile
   useEffect(() => {
     loadEmployee();
   }, [id]);
+
   const loadEmployee = async () => {
     try {
       setLoading(true);
       setError("");
+
       const employeeData = await getEmployee(id);
       setEmployee(employeeData);
-      await Promise.all([
+
+      // Load the other sections in the background.
+      // Do not wait for them before showing the profile.
+      Promise.all([
         loadTasks(),
         loadAttendance(),
         loadLeaves(),
         loadPerformanceReviews(),
         loadDocuments(),
-      ]);
+      ]).catch((err) => {
+        console.error("Failed to load profile sections:", err);
+      });
     } catch (err) {
       console.error(err);
       setError(
@@ -164,9 +173,11 @@ ATTENDANCE MODAL
       setLoading(false);
     }
   };
+
   const handleRefreshAll = async () => {
     await loadEmployee();
   };
+
 
   /* =========================================================
   LEAVE FUNCTIONS
