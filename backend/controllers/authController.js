@@ -5,7 +5,6 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
 const crypto = require("crypto");
-const { Resend } = require("resend");
 
 const normalizeRole = (role) => {
   if (!role) return "Employee";
@@ -666,23 +665,41 @@ const forgotPassword = async (req, res) => {
 
     const smtpAddresses = await dns.promises.resolve4(process.env.SMTP_HOST);
 
-    const resend = new Resend(process.env.RESEND_API_KEY);
-
     const resetUrl =
       `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
 
-    await resend.emails.send({
-      from: process.env.RESEND_FROM,
-      to: user.email,
-      subject: "EmployeeHub Password Reset",
-      text: `You requested a password reset. Open this link within 15 minutes: ${resetUrl}\n\nIf you did not request this, you can ignore this email.`,
-      html: `
-    <p>You requested a password reset for your EmployeeHub account.</p>
-    <p><a href="${resetUrl}">Reset your password</a></p>
-    <p>This link expires in 15 minutes and can only be used once.</p>
-    <p>If you did not request this, you can ignore this email.</p>
-  `,
+    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
+      method: "POST",
+      headers: {
+        accept: "application/json",
+        "api-key": process.env.BREVO_API_KEY,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        sender: {
+          name: process.env.BREVO_FROM_NAME,
+          email: process.env.BREVO_FROM_EMAIL,
+        },
+        to: [
+          {
+            email: user.email,
+          },
+        ],
+        subject: "EmployeeHub Password Reset",
+        textContent: `You requested a password reset. Open this link within 15 minutes: ${resetUrl}\n\nIf you did not request this, you can ignore this email.`,
+        htmlContent: `
+      <p>You requested a password reset for your EmployeeHub account.</p>
+      <p><a href="${resetUrl}">Reset your password</a></p>
+      <p>This link expires in 15 minutes and can only be used once.</p>
+      <p>If you did not request this, you can ignore this email.</p>
+    `,
+      }),
     });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      throw new Error(`Brevo email failed: ${errorData}`);
+    }
 
     return res.status(200).json({
       message: genericMessage,
