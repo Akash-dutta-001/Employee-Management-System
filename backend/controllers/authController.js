@@ -5,7 +5,7 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
 const crypto = require("crypto");
-const nodemailer = require("nodemailer");
+const { Resend } = require("resend");
 
 const normalizeRole = (role) => {
   if (!role) return "Employee";
@@ -666,33 +666,22 @@ const forgotPassword = async (req, res) => {
 
     const smtpAddresses = await dns.promises.resolve4(process.env.SMTP_HOST);
 
-    const transporter = nodemailer.createTransport({
-      host: smtpAddresses[0],
-      port: Number(process.env.SMTP_PORT || 587),
-      secure: process.env.SMTP_SECURE === "true",
-      auth: {
-        user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASS,
-      },
-      tls: {
-        servername: process.env.SMTP_HOST,
-      },
-    });
+    const resend = new Resend(process.env.RESEND_API_KEY);
 
     const resetUrl =
       `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
 
-    await transporter.sendMail({
-      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+    await resend.emails.send({
+      from: process.env.RESEND_FROM,
       to: user.email,
       subject: "EmployeeHub Password Reset",
       text: `You requested a password reset. Open this link within 15 minutes: ${resetUrl}\n\nIf you did not request this, you can ignore this email.`,
       html: `
-        <p>You requested a password reset for your EmployeeHub account.</p>
-        <p><a href="${resetUrl}">Reset your password</a></p>
-        <p>This link expires in 15 minutes and can only be used once.</p>
-        <p>If you did not request this, you can ignore this email.</p>
-      `,
+    <p>You requested a password reset for your EmployeeHub account.</p>
+    <p><a href="${resetUrl}">Reset your password</a></p>
+    <p>This link expires in 15 minutes and can only be used once.</p>
+    <p>If you did not request this, you can ignore this email.</p>
+  `,
     });
 
     return res.status(200).json({
