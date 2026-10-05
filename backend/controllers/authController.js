@@ -1,8 +1,10 @@
-
 const User = require("../models/User");
 const Employee = require("../models/Employee");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+
+const crypto = require("crypto");
+const nodemailer = require("nodemailer");
 
 const normalizeRole = (role) => {
   if (!role) return "Employee";
@@ -630,6 +632,128 @@ const rejectHr = async (req, res) => {
   }
 };
 
+
+const forgotPassword = async (req, res) => {
+  try {
+    const email = req.body.email?.trim().toLowerCase();
+
+    if (!email) {
+      return res.status(400).json({
+        message: "Email is required",
+      });
+    }
+
+    const user = await User.findOne({ email });
+
+    const genericMessage =
+      "If an account exists with this email, a password reset link has been sent.";
+
+    if (!user) {
+      return res.status(200).json({
+        message: genericMessage,
+      });
+    }
+
+    const resetToken = crypto.randomBytes(32).toString("hex");
+
+    user.resetPasswordToken = crypto
+      .createHash("sha256")
+      .update(resetToken)
+      .digest("hex");
+
+    user.resetPasswordExpires = Date.now() + 15 * 60 * 1000;
+
+    await user.save();
+
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port: Number(process.env.SMTP_PORT || 587),
+      secure: process.env.SMTP_SECURE === "true",
+      auth: {
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASS,
+      },
+    });
+
+    const resetUrl =
+      `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
+
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      to: user.email,
+      subject: "EmployeeHub Password Reset",
+      text: `You requested a password reset. Open this link within 15 minutes: ${resetUrl}\n\nIf you did not request this, you can ignore this email.`,
+      html: `
+        <p>You requested a password reset for your EmployeeHub account.</p>
+        <p><a href="${resetUrl}">Reset your password</a></p>
+        <p>This link expires in 15 minutes and can only be used once.</p>
+        <p>If you did not request this, you can ignore this email.</p>
+      `,
+    });
+
+    return res.status(200).json({
+      message: genericMessage,
+    });
+  } catch (error) {
+    console.error("Forgot password error:", error);
+
+    return res.status(500).json({
+      message: "Unable to process your request right now. Please try again later.",
+    });
+  }
+};
+
+const resetPassword = async (req, res) => {
+  try {
+    const { token } = req.params;
+    const { password } = req.body;
+
+    if (!token || !password) {
+      return res.status(400).json({
+        message: "Token and new password are required",
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        message: "Password must be at least 6 characters",
+      });
+    }
+
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
+    const user = await User.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        message: "This reset link is invalid or has expired. Please request a new one.",
+      });
+    }
+
+    user.password = await bcrypt.hash(password, 10);
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpires = undefined;
+
+    await user.save();
+
+    return res.status(200).json({
+      message: "Password reset successful. You can now log in with your new password.",
+    });
+  } catch (error) {
+    console.error("Reset password error:", error);
+
+    return res.status(500).json({
+      message: "Unable to reset your password right now. Please try again later.",
+    });
+  }
+};
+
 // =========================================================
 // EXPORTS
 // =========================================================
@@ -641,4 +765,6 @@ module.exports = {
   getHrRequests,
   approveHr,
   rejectHr,
+  forgotPassword,
+  resetPassword,
 };

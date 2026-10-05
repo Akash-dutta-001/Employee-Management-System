@@ -10,8 +10,45 @@ const AuthContext = createContext(null);
 const API_URL =
   import.meta.env.VITE_API_URL ||
   "https://employeehub-backend-y0or.onrender.com/api";
-  
+
 function AuthProvider({ children }) {
+
+    const forgotPassword = async (email) => {
+    const response = await fetch(`${API_URL}/auth/forgot-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: email.trim().toLowerCase(),
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "Unable to send reset link");
+    }
+
+    return data;
+  };
+
+  const resetPassword = async (token, password) => {
+    const response = await fetch(
+      `${API_URL}/auth/reset-password/${encodeURIComponent(token)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "Unable to reset password");
+    }
+
+    return data;
+  };
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -145,13 +182,15 @@ function AuthProvider({ children }) {
     setUser(null);
   };
 
-  const value = {
+    const value = {
     user,
     token,
     loading,
     isAuthenticated: Boolean(token && user),
     login,
     register,
+    forgotPassword,
+    resetPassword,
     getHrRequests,
     approveHr,
     rejectHr,

@@ -28,6 +28,16 @@ const userSchema = new mongoose.Schema(
       default: "Employee",
     },
 
+    resetPasswordToken: {
+      type: String,
+      default: undefined,
+    },
+
+    resetPasswordExpires: {
+      type: Date,
+      default: undefined,
+    },
+
     /*
     =====================================================
     LINK USER TO EMPLOYEE
