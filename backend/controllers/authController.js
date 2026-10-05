@@ -1,3 +1,4 @@
+const dns = require("dns");
 const User = require("../models/User");
 const Employee = require("../models/Employee");
 const bcrypt = require("bcryptjs");
@@ -663,14 +664,18 @@ const forgotPassword = async (req, res) => {
 
     await user.save();
 
+    const smtpAddresses = await dns.promises.resolve4(process.env.SMTP_HOST);
+
     const transporter = nodemailer.createTransport({
-      host: process.env.SMTP_HOST,
+      host: smtpAddresses[0],
       port: Number(process.env.SMTP_PORT || 587),
       secure: process.env.SMTP_SECURE === "true",
-      family: 4,
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
+      },
+      tls: {
+        servername: process.env.SMTP_HOST,
       },
     });
 
