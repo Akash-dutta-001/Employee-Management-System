@@ -18,6 +18,8 @@ const authRoutes = require("./routes/authRoutes");
 
 const app = express();
 
+app.set("trust proxy", 1);
+
 /* =========================================================
    REQUEST TIMING
 ========================================================= */
