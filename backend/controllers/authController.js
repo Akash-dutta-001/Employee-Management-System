@@ -278,15 +278,14 @@ const login = async (req, res) => {
   let lastStep = loginStart;
 
   const requestId =
-  req.requestId ||
-  `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
+    req.requestId ||
+    `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`;
 
   const logLoginStep = (step) => {
     const now = Date.now();
 
     console.log(
-      `[LOGIN TIMING][${requestId}] ${step}: ${
-        now - lastStep
+      `[LOGIN TIMING][${requestId}] ${step}: ${now - lastStep
       } ms (elapsed: ${now - loginStart} ms)`
     );
 
@@ -435,10 +434,9 @@ const login = async (req, res) => {
       message: "Login failed",
       error: error.message,
     });
-    } finally {
+  } finally {
     console.log(
-      `[LOGIN TIMING][${requestId}] Total: ${
-        Date.now() - loginStart
+      `[LOGIN TIMING][${requestId}] Total: ${Date.now() - loginStart
       } ms`
     );
   }
@@ -669,6 +667,7 @@ const forgotPassword = async (req, res) => {
       host: process.env.SMTP_HOST,
       port: Number(process.env.SMTP_PORT || 587),
       secure: process.env.SMTP_SECURE === "true",
+      family: 4,
       auth: {
         user: process.env.SMTP_USER,
         pass: process.env.SMTP_PASS,
