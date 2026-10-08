@@ -12,43 +12,6 @@ const API_URL =
   "https://employeehub-backend-y0or.onrender.com/api";
 
 function AuthProvider({ children }) {
-
-    const forgotPassword = async (email) => {
-    const response = await fetch(`${API_URL}/auth/forgot-password`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        email: email.trim().toLowerCase(),
-      }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || "Unable to send reset link");
-    }
-
-    return data;
-  };
-
-  const resetPassword = async (token, password) => {
-    const response = await fetch(
-      `${API_URL}/auth/reset-password/${encodeURIComponent(token)}`,
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ password }),
-      }
-    );
-
-    const data = await response.json();
-
-    if (!response.ok) {
-      throw new Error(data.message || "Unable to reset password");
-    }
-
-    return data;
-  };
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -123,15 +86,102 @@ function AuthProvider({ children }) {
       throw new Error(data.message || "Registration failed");
     }
 
-    // Employee: backend returns a token and the account is active immediately.
-    if (data.token && data.user) {
-      localStorage.setItem("employeehub_token", data.token);
-      localStorage.setItem("employeehub_user", JSON.stringify(data.user));
-      setToken(data.token);
-      setUser(data.user);
+    return data;
+  };
+
+  const forgotPassword = async (email) => {
+    const response = await fetch(`${API_URL}/auth/forgot-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        email: email.trim().toLowerCase(),
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "Unable to send reset link");
     }
 
     return data;
+  };
+
+  const resetPassword = async (token, password) => {
+    const response = await fetch(
+      `${API_URL}/auth/reset-password/${encodeURIComponent(token)}`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password }),
+      }
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "Unable to reset password");
+    }
+
+    return data;
+  };
+
+  const verifyEmail = async (verificationToken) => {
+    const response = await fetch(
+      `${API_URL}/auth/verify-email/${encodeURIComponent(verificationToken)}`
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "Email verification failed");
+    }
+
+    return data;
+  };
+
+  const requestAdminEmailChange = async (email) => {
+    return authFetch(`${API_URL}/auth/admin/change-email`, {
+      method: "POST",
+      body: JSON.stringify({
+        email: email.trim().toLowerCase(),
+      }),
+    });
+  };
+
+  const verifyNewAdminEmail = async (verificationToken) => {
+    const response = await fetch(
+      `${API_URL}/auth/verify-new-email/${encodeURIComponent(
+        verificationToken
+      )}`
+    );
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      throw new Error(data.message || "Email verification failed");
+    }
+
+    return data;
+  };
+
+  const createAdmin = async ({
+    name,
+    email,
+    password,
+    jobRole,
+    department,
+  }) => {
+    return authFetch(`${API_URL}/auth/admin/create`, {
+      method: "POST",
+      body: JSON.stringify({
+        name: name.trim(),
+        email: email.trim().toLowerCase(),
+        password,
+        jobRole: jobRole?.trim() || "",
+        department: department?.trim() || "",
+      }),
+    });
   };
 
   const authFetch = async (url, options = {}) => {
@@ -162,17 +212,15 @@ function AuthProvider({ children }) {
   };
 
   const approveHr = async (userId) => {
-    const data = await authFetch(`${API_URL}/auth/hr-requests/${userId}/approve`, {
+    return authFetch(`${API_URL}/auth/hr-requests/${userId}/approve`, {
       method: "PATCH",
     });
-    return data;
   };
 
   const rejectHr = async (userId) => {
-    const data = await authFetch(`${API_URL}/auth/hr-requests/${userId}/reject`, {
+    return authFetch(`${API_URL}/auth/hr-requests/${userId}/reject`, {
       method: "PATCH",
     });
-    return data;
   };
 
   const logout = () => {
@@ -182,7 +230,7 @@ function AuthProvider({ children }) {
     setUser(null);
   };
 
-    const value = {
+  const value = {
     user,
     token,
     loading,
@@ -191,6 +239,10 @@ function AuthProvider({ children }) {
     register,
     forgotPassword,
     resetPassword,
+    verifyEmail,
+    requestAdminEmailChange,
+    verifyNewAdminEmail,
+    createAdmin,
     getHrRequests,
     approveHr,
     rejectHr,

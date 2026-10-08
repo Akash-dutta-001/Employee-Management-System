@@ -1,8 +1,7 @@
-
 import axios from "axios";
 
 const API = axios.create({
-  baseURL: "https://employeehub-backend-y0or.onrender.com/api",
+  baseURL: "http://localhost:5000/api",
 });
 
 // =====================================
@@ -121,6 +120,18 @@ export const createEmployee = async (employeeData) => {
 export const updateEmployee = async (id, employeeData) => {
   const response = await API.put(`/employees/${id}`, employeeData);
   clearApiCache();
+  return response.data;
+};
+
+export const updateEmployeeStatus = async (
+  id,
+  status
+) => {
+  const response = await API.patch(
+    `/employees/${id}/status`,
+    { status }
+  );
+
   return response.data;
 };
 

@@ -86,18 +86,22 @@ function Login() {
           department,
         });
 
-        if (result?.pendingApproval) {
-          setMode("login");
-          setPassword("");
-          setConfirmPassword("");
-          setError("");
+        setMode("login");
+        setName("");
+        setEmail("");
+        setPassword("");
+        setConfirmPassword("");
+        setJobRole("");
+        setDepartment("");
+        setRole("Employee");
 
-          window.alert(
-            "HR account created successfully. Your account is pending Admin verification. You can log in after an Admin approves it."
-          );
-        } else {
-          navigate("/", { replace: true });
-        }
+        setError("");
+
+        window.alert(
+          result?.pendingApproval
+            ? "HR account created successfully. Please verify your email first. Your account will remain pending until an Admin approves it."
+            : "Account created successfully. Please check your email and verify your account before logging in."
+        );
       } else {
         await login(email, password);
         navigate("/", { replace: true });
@@ -171,7 +175,7 @@ function Login() {
             </p>
           </div>
 
-          <div className="w-full max-w-md rounded-2xl border border-slate-700/80 bg-slate-900/80 p-5 shadow-2xl shadow-blue-950/30 backdrop-blur-xl sm:p-8 sm:p-10">
+          <div className="w-full max-w-md rounded-2xl border border-slate-700/80 bg-slate-900/80 p-5 shadow-2xl shadow-blue-950/30 backdrop-blur-xl sm:p-8">
             <div className="mb-6 sm:mb-8">
               <p className="text-sm font-semibold uppercase tracking-[0.2em] text-blue-500">
                 EmployeeHub
@@ -256,11 +260,14 @@ function Login() {
                   {role === "HR" && (
                     <div className="rounded-xl border border-amber-700/50 bg-amber-950/30 px-4 py-3 text-sm text-amber-300">
                       <div className="flex items-start gap-2">
-                        <ShieldCheck size={18} className="mt-0.5 shrink-0" />
+                        <ShieldCheck
+                          size={18}
+                          className="mt-0.5 shrink-0"
+                        />
                         <span>
                           HR accounts are saved as <strong>Pending</strong>.
-                          An Admin must verify and approve the account before
-                          the HR user can log in.
+                          You must verify your email and an Admin must approve
+                          the account before you can log in.
                         </span>
                       </div>
                     </div>
@@ -299,7 +306,11 @@ function Login() {
                   }
                   className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 transition hover:text-blue-400"
                 >
-                  {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  {showPassword ? (
+                    <EyeOff size={20} />
+                  ) : (
+                    <Eye size={20} />
+                  )}
                 </button>
               </Field>
 
@@ -380,8 +391,9 @@ function Login() {
             {isRegister && (
               <p className="mt-5 text-center text-xs leading-5 text-slate-500">
                 No Employee Profile ID is required. Employee registration
-                creates the Employee profile automatically. HR registration
-                creates a pending account that must be verified by an Admin.
+                creates the Employee profile automatically. After registration,
+                verify your email before logging in. HR registration also
+                requires Admin approval.
               </p>
             )}
           </div>

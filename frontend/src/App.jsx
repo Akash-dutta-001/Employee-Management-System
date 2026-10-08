@@ -21,6 +21,9 @@ import PermissionRoute from "./components/PermissionRoute";
 import ForgotPassword from "./pages/ForgotPassword";
 import ResetPassword from "./pages/ResetPassword";
 
+import VerifyEmail from "./pages/VerifyEmail";
+import VerifyNewEmail from "./pages/VerifyNewEmail";
+
 function App() {
   return (
     <BrowserRouter>
@@ -33,6 +36,8 @@ function App() {
         <Route path="/login" element={<Login />} />
         <Route path="/forgot-password" element={<ForgotPassword />} />
         <Route path="/reset-password/:token" element={<ResetPassword />} />
+        <Route path="/verify-email/:token" element={<VerifyEmail />} />
+        <Route path="/verify-new-email/:token" element={<VerifyNewEmail />} />
 
 
         {/* =================================================
