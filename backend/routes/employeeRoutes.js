@@ -2,12 +2,14 @@ const express = require("express");
 const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
+const User = require("../models/User");
 
 const {
   getEmployees,
   getEmployee,
   createEmployee,
   updateEmployee,
+  updateEmployeeStatus,
   deleteEmployee,
 
   // Attendance
@@ -101,9 +103,83 @@ const upload = multer({
   },
 });
 
+
+/* =========================================================
+   PROTECT ADMIN ACCOUNT STATUS
+========================================================= */
+
+const protectAdminStatusChange = async (req, res, next) => {
+  try {
+    // Only check when somebody is trying to deactivate
+    // an employee.
+    if (req.body?.status !== "Inactive") {
+      return next();
+    }
+
+    // Only Admin accounts need this special protection.
+    if (req.user?.role !== "Admin") {
+      return next();
+    }
+
+    // Get the CURRENT logged-in User from MongoDB.
+    const currentUser = await User.findById(req.user.id);
+
+    if (!currentUser) {
+      return res.status(401).json({
+        message: "Current user account not found",
+      });
+    }
+
+    // The logged-in user must actually be an Admin.
+    if (currentUser.role !== "Admin") {
+      return next();
+    }
+
+    // =====================================================
+    // BLOCK ADMIN FROM DEACTIVATING THEIR OWN PROFILE
+    // =====================================================
+
+    if (
+      currentUser.employee &&
+      String(currentUser.employee) ===
+        String(req.params.id)
+    ) {
+      return res.status(403).json({
+        message:
+          "You cannot deactivate your own Admin account",
+      });
+    }
+
+    // Extra safety check using req.user.employeeId
+    if (
+      req.user.employeeId &&
+      String(req.user.employeeId) ===
+        String(req.params.id)
+    ) {
+      return res.status(403).json({
+        message:
+          "You cannot deactivate your own Admin account",
+      });
+    }
+
+    next();
+  } catch (error) {
+    console.error(
+      "Admin status protection error:",
+      error
+    );
+
+    return res.status(500).json({
+      message:
+        "Failed to validate Admin account status change",
+    });
+  }
+};
+
 /* =========================================================
    EMPLOYEE ROUTES
 ========================================================= */
+
 
 /* =========================================================
    GET ALL EMPLOYEES
@@ -181,6 +257,16 @@ router.post(
   authMiddleware,
   authorize("employees", "add"),
   createEmployee
+);
+
+/* =========================================================
+   UPDATE EMPLOYEE ACCOUNT STATUS
+========================================================= */
+
+router.patch(
+  "/:id/status",
+  authMiddleware,
+  updateEmployeeStatus
 );
 
 /*

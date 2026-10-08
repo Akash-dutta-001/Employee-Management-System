@@ -1,9 +1,7 @@
-const dns = require("dns");
 const User = require("../models/User");
 const Employee = require("../models/Employee");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
-
 const crypto = require("crypto");
 
 const normalizeRole = (role) => {
@@ -32,7 +30,7 @@ const generateToken = (user) => {
 
 const ensureEmployeeProfile = async (
   user,
-  { activate = true } = {}
+  { activate = false } = {}
 ) => {
   if (!user || !["Admin", "HR"].includes(user.role)) {
     return null;
@@ -46,7 +44,7 @@ const ensureEmployeeProfile = async (
 
   if (!employee) {
     employee = await Employee.findOne({
-      email: user.email,
+      email: user.email.toLowerCase(),
     });
   }
 
@@ -59,7 +57,7 @@ const ensureEmployeeProfile = async (
         (user.role === "Admin"
           ? "Administration"
           : "Human Resources"),
-      email: user.email,
+      email: user.email.toLowerCase(),
       status: activate ? "Active" : "Inactive",
     });
   } else if (activate && employee.status !== "Active") {
@@ -74,24 +72,6 @@ const ensureEmployeeProfile = async (
 
   return employee;
 };
-
-/*
-=========================================================
-PUBLIC REGISTRATION
-=========================================================
-
-Employee:
-- User creates the account from the Login page.
-- No MongoDB Employee/Profile ID is required.
-- Backend automatically creates the Employee profile and links it.
-- Account is active immediately.
-
-HR:
-- User creates the account from the Login page.
-- No Employee/Profile ID is required.
-- Account is stored as Pending.
-- Admin must approve it before login is allowed.
-*/
 
 const register = async (req, res) => {
   try {
@@ -118,7 +98,6 @@ const register = async (req, res) => {
 
     const normalizedRole = normalizeRole(role);
 
-    // Admin cannot be created through public registration.
     if (!normalizedRole || normalizedRole === "Admin") {
       return res.status(403).json({
         message:
@@ -140,9 +119,15 @@ const register = async (req, res) => {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // =====================================================
-    // EMPLOYEE REGISTRATION
-    // =====================================================
+    const verificationToken = crypto.randomBytes(32).toString("hex");
+
+    const hashedVerificationToken = crypto
+      .createHash("sha256")
+      .update(verificationToken)
+      .digest("hex");
+
+    const verificationExpires =
+      Date.now() + 24 * 60 * 60 * 1000;
 
     if (normalizedRole === "Employee") {
       if (!jobRole?.trim() || !department?.trim()) {
@@ -178,32 +163,60 @@ const register = async (req, res) => {
         employee: employee._id,
         department: department.trim(),
         registrationStatus: "Approved",
-        isActive: true,
+        isActive: false,
+        emailVerified: false,
+        emailVerificationToken: hashedVerificationToken,
+        emailVerificationExpires: verificationExpires,
       });
 
-      const token = generateToken(user);
+      const verificationUrl =
+        `${process.env.FRONTEND_URL}/verify-email/${verificationToken}`;
+
+      const response = await fetch(
+        "https://api.brevo.com/v3/smtp/email",
+        {
+          method: "POST",
+          headers: {
+            accept: "application/json",
+            "api-key": process.env.BREVO_API_KEY,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            sender: {
+              name: process.env.BREVO_FROM_NAME,
+              email: process.env.BREVO_FROM_EMAIL,
+            },
+            to: [
+              {
+                email: user.email,
+              },
+            ],
+            subject: "Verify your EmployeeHub email",
+            textContent: `Verify your EmployeeHub account by opening this link: ${verificationUrl}`,
+            htmlContent: `
+              <p>Welcome to EmployeeHub.</p>
+              <p>Click the link below to verify your email address.</p>
+              <p><a href="${verificationUrl}">Verify Email</a></p>
+              <p>This link expires in 24 hours.</p>
+            `,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        throw new Error(
+          `Brevo verification email failed: ${errorData}`
+        );
+      }
 
       return res.status(201).json({
-        message: "Employee account and profile created successfully",
-        token,
-        user: {
-          id: user._id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          employee: user.employee,
-          department: user.department,
-          registrationStatus: user.registrationStatus,
-        },
+        message:
+          "Account created. Please check your email to verify your account.",
       });
     }
 
-    // =====================================================
-    // HR REGISTRATION
-    // =====================================================
-
     if (normalizedRole === "HR") {
-      // Department is optional during public HR registration.
       const hrDepartment =
         department?.trim() || "Human Resources";
 
@@ -218,7 +231,6 @@ const register = async (req, res) => {
         });
       }
 
-      // HR is also an employee in EmployeeHub.
       const employee = await Employee.create({
         name: name.trim(),
         role: "HR",
@@ -237,7 +249,47 @@ const register = async (req, res) => {
           department: hrDepartment,
           registrationStatus: "Pending",
           isActive: false,
+          emailVerified: false,
+          emailVerificationToken: hashedVerificationToken,
+          emailVerificationExpires: verificationExpires,
         });
+
+        const verificationUrl =
+          `${process.env.FRONTEND_URL}/verify-email/${verificationToken}`;
+
+        const response = await fetch(
+          "https://api.brevo.com/v3/smtp/email",
+          {
+            method: "POST",
+            headers: {
+              accept: "application/json",
+              "api-key": process.env.BREVO_API_KEY,
+              "content-type": "application/json",
+            },
+            body: JSON.stringify({
+              sender: {
+                name: process.env.BREVO_FROM_NAME,
+                email: process.env.BREVO_FROM_EMAIL,
+              },
+              to: [{ email: user.email }],
+              subject: "Verify your EmployeeHub email",
+              textContent: `Verify your EmployeeHub account by opening this link: ${verificationUrl}`,
+              htmlContent: `
+                <p>Welcome to EmployeeHub.</p>
+                <p>Click the link below to verify your email address.</p>
+                <p><a href="${verificationUrl}">Verify Email</a></p>
+                <p>This link expires in 24 hours.</p>
+              `,
+            }),
+          }
+        );
+
+        if (!response.ok) {
+          const errorData = await response.text();
+          throw new Error(
+            `Brevo verification email failed: ${errorData}`
+          );
+        }
 
         return res.status(201).json({
           message:
@@ -254,7 +306,6 @@ const register = async (req, res) => {
           },
         });
       } catch (userError) {
-        // Remove the Employee profile if User creation fails.
         await Employee.findByIdAndDelete(employee._id);
         throw userError;
       }
@@ -269,10 +320,6 @@ const register = async (req, res) => {
   }
 };
 
-// =========================================================
-// LOGIN WITH PERFORMANCE TIMING
-// =========================================================
-
 const login = async (req, res) => {
   const loginStart = Date.now();
   let lastStep = loginStart;
@@ -285,14 +332,13 @@ const login = async (req, res) => {
     const now = Date.now();
 
     console.log(
-      `[LOGIN TIMING][${requestId}] ${step}: ${now - lastStep
+      `[LOGIN TIMING][${requestId}] ${step}: ${
+        now - lastStep
       } ms (elapsed: ${now - loginStart} ms)`
     );
 
     lastStep = now;
   };
-
-  // Keep the existing try/catch and login logic below.
 
   try {
     const { email, password } = req.body;
@@ -305,7 +351,6 @@ const login = async (req, res) => {
 
     const normalizedEmail = email.trim().toLowerCase();
 
-    // 1. Find user in MongoDB
     const user = await User.findOne({
       email: normalizedEmail,
     });
@@ -318,7 +363,20 @@ const login = async (req, res) => {
       });
     }
 
-    // 2. Compare password
+    if (user.emailVerified === false) {
+      if (
+        user.role === "Admin" &&
+        !user.emailVerificationToken
+      ) {
+        user.emailVerified = true;
+        await user.save();
+      } else {
+        return res.status(403).json({
+          message: "Please verify your email before logging in.",
+        });
+      }
+    }
+
     const isPasswordValid = await bcrypt.compare(
       password,
       user.password
@@ -332,7 +390,6 @@ const login = async (req, res) => {
       });
     }
 
-    // 3. Normalize role
     const normalizedRole = normalizeRole(user.role);
 
     if (!normalizedRole) {
@@ -341,7 +398,6 @@ const login = async (req, res) => {
       });
     }
 
-    // 4. Check HR approval
     if (
       normalizedRole === "HR" &&
       user.registrationStatus !== "Approved"
@@ -359,35 +415,63 @@ const login = async (req, res) => {
       });
     }
 
-    // 5. Check whether account is active
-    if (user.isActive === false) {
-      return res.status(403).json({
-        message: "Your account is inactive",
-      });
-    }
-
-    // 6. Ensure Admin and HR have Employee profiles
     if (
       normalizedRole === "Admin" ||
       normalizedRole === "HR"
     ) {
-      await ensureEmployeeProfile(user, {
-        activate: true,
-      });
+      let employee = null;
 
-      logLoginStep("Ensure employee profile");
+      if (user.employee) {
+        employee = await Employee.findById(user.employee);
+      }
+
+      if (!employee) {
+        employee = await Employee.findOne({
+          email: normalizedEmail,
+        });
+      }
+
+      if (!employee) {
+        return res.status(403).json({
+          message: "Your Employee Profile was not found",
+        });
+      }
+
+      if (employee.status === "Inactive") {
+        if (user.isActive !== false) {
+          user.isActive = false;
+          await user.save();
+        }
+
+        return res.status(403).json({
+          message: "Your account is inactive",
+        });
+      }
+
+      if (user.isActive === false) {
+        return res.status(403).json({
+          message: "Your account is inactive",
+        });
+      }
+
+      if (
+        String(user.employee || "") !==
+        String(employee._id)
+      ) {
+        user.employee = employee._id;
+        await user.save();
+      }
+
+      logLoginStep("Admin/HR status check");
     }
 
-    // 7. Save normalized role if needed
-    if (user.role !== normalizedRole) {
-      user.role = normalizedRole;
-      await user.save();
-    }
-
-    logLoginStep("Role normalization and save");
-
-    // 8. Check Employee profile for Employee accounts
     if (normalizedRole === "Employee") {
+      if (user.isActive === false) {
+        return res.status(403).json({
+          message: "Your account is inactive",
+        });
+      }
+
       if (!user.employee) {
         return res.status(403).json({
           message:
@@ -406,14 +490,28 @@ const login = async (req, res) => {
           message: "Your Employee Profile no longer exists.",
         });
       }
+
+      if (employee.status === "Inactive") {
+        user.isActive = false;
+        await user.save();
+
+        return res.status(403).json({
+          message: "Your account is inactive",
+        });
+      }
     }
 
-    // 9. Generate JWT
+    if (user.role !== normalizedRole) {
+      user.role = normalizedRole;
+      await user.save();
+    }
+
+    logLoginStep("Role normalization and save");
+
     const token = generateToken(user);
 
     logLoginStep("JWT generation");
 
-    // 10. Send login response
     return res.status(200).json({
       message: "Login successful",
       token,
@@ -436,15 +534,12 @@ const login = async (req, res) => {
     });
   } finally {
     console.log(
-      `[LOGIN TIMING][${requestId}] Total: ${Date.now() - loginStart
+      `[LOGIN TIMING][${requestId}] Total: ${
+        Date.now() - loginStart
       } ms`
     );
   }
 };
-
-// =========================================================
-// GET CURRENT USER
-// =========================================================
 
 const getMe = async (req, res) => {
   try {
@@ -467,12 +562,27 @@ const getMe = async (req, res) => {
       });
     }
 
+    if (user.isActive === false) {
+      return res.status(403).json({
+        message: "Your account is inactive",
+      });
+    }
+
     if (user.role === "Admin" || user.role === "HR") {
       await ensureEmployeeProfile(user, {
-        activate: true,
+        activate: false,
       });
 
       await user.populate("employee");
+
+      if (
+        user.employee &&
+        user.employee.status === "Inactive"
+      ) {
+        return res.status(403).json({
+          message: "Your account is inactive",
+        });
+      }
     }
 
     return res.status(200).json({
@@ -486,10 +596,6 @@ const getMe = async (req, res) => {
     });
   }
 };
-
-// =========================================================
-// ADMIN: HR VERIFICATION
-// =========================================================
 
 const getHrRequests = async (req, res) => {
   try {
@@ -537,7 +643,6 @@ const approveHr = async (req, res) => {
       });
     }
 
-    // Repair or create Employee profile
     let employee = null;
 
     if (user.employee) {
@@ -561,10 +666,13 @@ const approveHr = async (req, res) => {
       });
     }
 
-    // Link User to Employee
-    user.employee = employee._id;
+    employee.status = "Active";
+    employee.email = user.email;
+    employee.name = user.name;
 
-    // Approve HR
+    await employee.save();
+
+    user.employee = employee._id;
     user.registrationStatus = "Approved";
     user.isActive = true;
 
@@ -618,6 +726,12 @@ const rejectHr = async (req, res) => {
 
     await user.save();
 
+    if (user.employee) {
+      await Employee.findByIdAndUpdate(user.employee, {
+        status: "Inactive",
+      });
+    }
+
     return res.status(200).json({
       message: "HR account rejected",
     });
@@ -629,7 +743,6 @@ const rejectHr = async (req, res) => {
     });
   }
 };
-
 
 const forgotPassword = async (req, res) => {
   try {
@@ -659,42 +772,44 @@ const forgotPassword = async (req, res) => {
       .update(resetToken)
       .digest("hex");
 
-    user.resetPasswordExpires = Date.now() + 15 * 60 * 1000;
+    user.resetPasswordExpires =
+      Date.now() + 15 * 60 * 1000;
 
     await user.save();
-
-    const smtpAddresses = await dns.promises.resolve4(process.env.SMTP_HOST);
 
     const resetUrl =
       `${process.env.FRONTEND_URL}/reset-password/${resetToken}`;
 
-    const response = await fetch("https://api.brevo.com/v3/smtp/email", {
-      method: "POST",
-      headers: {
-        accept: "application/json",
-        "api-key": process.env.BREVO_API_KEY,
-        "content-type": "application/json",
-      },
-      body: JSON.stringify({
-        sender: {
-          name: process.env.BREVO_FROM_NAME,
-          email: process.env.BREVO_FROM_EMAIL,
+    const response = await fetch(
+      "https://api.brevo.com/v3/smtp/email",
+      {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          "api-key": process.env.BREVO_API_KEY,
+          "content-type": "application/json",
         },
-        to: [
-          {
-            email: user.email,
+        body: JSON.stringify({
+          sender: {
+            name: process.env.BREVO_FROM_NAME,
+            email: process.env.BREVO_FROM_EMAIL,
           },
-        ],
-        subject: "EmployeeHub Password Reset",
-        textContent: `You requested a password reset. Open this link within 15 minutes: ${resetUrl}\n\nIf you did not request this, you can ignore this email.`,
-        htmlContent: `
-      <p>You requested a password reset for your EmployeeHub account.</p>
-      <p><a href="${resetUrl}">Reset your password</a></p>
-      <p>This link expires in 15 minutes and can only be used once.</p>
-      <p>If you did not request this, you can ignore this email.</p>
-    `,
-      }),
-    });
+          to: [
+            {
+              email: user.email,
+            },
+          ],
+          subject: "EmployeeHub Password Reset",
+          textContent: `You requested a password reset. Open this link within 15 minutes: ${resetUrl}\n\nIf you did not request this, you can ignore this email.`,
+          htmlContent: `
+            <p>You requested a password reset for your EmployeeHub account.</p>
+            <p><a href="${resetUrl}">Reset your password</a></p>
+            <p>This link expires in 15 minutes and can only be used once.</p>
+            <p>If you did not request this, you can ignore this email.</p>
+          `,
+        }),
+      }
+    );
 
     if (!response.ok) {
       const errorData = await response.text();
@@ -708,7 +823,8 @@ const forgotPassword = async (req, res) => {
     console.error("Forgot password error:", error);
 
     return res.status(500).json({
-      message: "Unable to process your request right now. Please try again later.",
+      message:
+        "Unable to process your request right now. Please try again later.",
     });
   }
 };
@@ -742,7 +858,8 @@ const resetPassword = async (req, res) => {
 
     if (!user) {
       return res.status(400).json({
-        message: "This reset link is invalid or has expired. Please request a new one.",
+        message:
+          "This reset link is invalid or has expired. Please request a new one.",
       });
     }
 
@@ -753,20 +870,511 @@ const resetPassword = async (req, res) => {
     await user.save();
 
     return res.status(200).json({
-      message: "Password reset successful. You can now log in with your new password.",
+      message:
+        "Password reset successful. You can now log in with your new password.",
     });
   } catch (error) {
     console.error("Reset password error:", error);
 
     return res.status(500).json({
-      message: "Unable to reset your password right now. Please try again later.",
+      message:
+        "Unable to reset your password right now. Please try again later.",
     });
   }
 };
 
-// =========================================================
-// EXPORTS
-// =========================================================
+
+const verifyEmail = async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    if (!token) {
+      return res.status(400).json({
+        message: "Verification token is required",
+      });
+    }
+
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
+    const user = await User.findOne({
+      emailVerificationToken: hashedToken,
+      emailVerificationExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        message:
+          "This verification link is invalid or has expired.",
+      });
+    }
+
+    // ---------------------------------------------------------
+    // Mark email as verified
+    // ---------------------------------------------------------
+
+    user.emailVerified = true;
+
+    // ---------------------------------------------------------
+    // Employee
+    //
+    // A newly registered Employee starts with:
+    // User.isActive = false
+    // Employee.status = Active
+    //
+    // Email verification is what activates the account.
+    // ---------------------------------------------------------
+
+    if (user.role === "Employee") {
+      user.isActive = true;
+
+      if (user.employee) {
+        const employee = await Employee.findById(user.employee);
+
+        if (employee) {
+          employee.status = "Active";
+          await employee.save();
+        }
+      }
+    }
+
+    // ---------------------------------------------------------
+    // Admin
+    //
+    // This path is intended for a NEW Admin created by another
+    // Admin through createAdmin().
+    //
+    // createAdmin() creates:
+    // User.isActive = false
+    // Employee.status = Inactive
+    //
+    // Verification activates that NEW Admin.
+    // ---------------------------------------------------------
+
+    if (user.role === "Admin") {
+      user.isActive = true;
+
+      let employee = null;
+
+      if (user.employee) {
+        employee = await Employee.findById(user.employee);
+      }
+
+      if (!employee) {
+        employee = await Employee.findOne({
+          email: user.email.trim().toLowerCase(),
+        });
+      }
+
+      if (employee) {
+        employee.status = "Active";
+        employee.email = user.email;
+
+        await employee.save();
+
+        if (
+          String(user.employee || "") !==
+          String(employee._id)
+        ) {
+          user.employee = employee._id;
+        }
+      }
+    }
+
+    // ---------------------------------------------------------
+    // HR
+    //
+    // IMPORTANT:
+    // Email verification does NOT activate HR.
+    //
+    // HR must still be approved by an Admin.
+    // approveHr() is responsible for:
+    //
+    // registrationStatus = Approved
+    // isActive = true
+    // Employee.status = Active
+    // ---------------------------------------------------------
+
+    if (user.role === "HR") {
+      // Keep HR inactive until Admin approval.
+      user.isActive = false;
+    }
+
+    // ---------------------------------------------------------
+    // Consume verification token
+    // ---------------------------------------------------------
+
+    user.emailVerificationToken = undefined;
+    user.emailVerificationExpires = undefined;
+
+    await user.save();
+
+    return res.status(200).json({
+      message:
+        user.role === "HR"
+          ? "Email verified successfully. Your account is pending Admin approval."
+          : "Email verified successfully. You can now log in.",
+    });
+
+  } catch (error) {
+    console.error("Email verification error:", error);
+
+    return res.status(500).json({
+      message: "Unable to verify your email right now.",
+    });
+  }
+};
+
+
+const requestAdminEmailChange = async (req, res) => {
+  try {
+    if (req.user?.role !== "Admin") {
+      return res.status(403).json({
+        message: "Only Admin can change the Admin email",
+      });
+    }
+
+    const newEmail = req.body.email?.trim().toLowerCase();
+
+    if (!newEmail) {
+      return res.status(400).json({
+        message: "New email is required",
+      });
+    }
+
+    if (newEmail === req.user.email?.toLowerCase()) {
+      return res.status(400).json({
+        message:
+          "New email must be different from your current email",
+      });
+    }
+
+    const existingUser = await User.findOne({
+      email: newEmail,
+      _id: { $ne: req.user.id },
+    });
+
+    if (existingUser) {
+      return res.status(400).json({
+        message: "This email is already registered",
+      });
+    }
+
+    const existingEmployee = await Employee.findOne({
+      email: newEmail,
+    });
+
+    if (existingEmployee) {
+      return res.status(400).json({
+        message:
+          "An Employee Profile already exists with this email",
+      });
+    }
+
+    const user = await User.findById(req.user.id);
+
+    if (!user || user.role !== "Admin") {
+      return res.status(404).json({
+        message: "Admin account not found",
+      });
+    }
+
+    const verificationToken =
+      crypto.randomBytes(32).toString("hex");
+
+    const hashedVerificationToken = crypto
+      .createHash("sha256")
+      .update(verificationToken)
+      .digest("hex");
+
+    user.pendingEmail = newEmail;
+    user.pendingEmailVerificationToken =
+      hashedVerificationToken;
+    user.pendingEmailVerificationExpires =
+      Date.now() + 24 * 60 * 60 * 1000;
+
+    await user.save();
+
+    const verificationUrl =
+      `${process.env.FRONTEND_URL}/verify-new-email/${verificationToken}`;
+
+    const response = await fetch(
+      "https://api.brevo.com/v3/smtp/email",
+      {
+        method: "POST",
+        headers: {
+          accept: "application/json",
+          "api-key": process.env.BREVO_API_KEY,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          sender: {
+            name: process.env.BREVO_FROM_NAME,
+            email: process.env.BREVO_FROM_EMAIL,
+          },
+          to: [{ email: newEmail }],
+          subject: "Verify your new EmployeeHub email",
+          textContent: `Verify your new EmployeeHub email by opening this link: ${verificationUrl}`,
+          htmlContent: `
+            <p>You requested to change your EmployeeHub Admin email.</p>
+            <p><a href="${verificationUrl}">Verify New Email</a></p>
+            <p>This link expires in 24 hours.</p>
+            <p>If you did not request this change, you can ignore this email.</p>
+          `,
+        }),
+      }
+    );
+
+    if (!response.ok) {
+      const errorData = await response.text();
+
+      user.pendingEmail = undefined;
+      user.pendingEmailVerificationToken = undefined;
+      user.pendingEmailVerificationExpires = undefined;
+
+      await user.save();
+
+      throw new Error(`Brevo email failed: ${errorData}`);
+    }
+
+    return res.status(200).json({
+      message:
+        "Verification email sent to the new email address.",
+    });
+  } catch (error) {
+    console.error("Admin email change error:", error);
+
+    return res.status(500).json({
+      message:
+        "Unable to send email verification right now.",
+    });
+  }
+};
+
+const verifyNewAdminEmail = async (req, res) => {
+  try {
+    const { token } = req.params;
+
+    if (!token) {
+      return res.status(400).json({
+        message: "Verification token is required",
+      });
+    }
+
+    const hashedToken = crypto
+      .createHash("sha256")
+      .update(token)
+      .digest("hex");
+
+    const user = await User.findOne({
+      role: "Admin",
+      pendingEmailVerificationToken: hashedToken,
+      pendingEmailVerificationExpires: { $gt: Date.now() },
+    });
+
+    if (!user) {
+      return res.status(400).json({
+        message:
+          "This verification link is invalid or has expired.",
+      });
+    }
+
+    const oldEmail = user.email;
+    const newEmail = user.pendingEmail;
+
+    const existingUser = await User.findOne({
+      email: newEmail,
+      _id: { $ne: user._id },
+    });
+
+    if (existingUser) {
+      return res.status(400).json({
+        message: "This email is already registered.",
+      });
+    }
+
+    user.email = newEmail;
+    user.emailVerified = true;
+    user.pendingEmail = undefined;
+    user.pendingEmailVerificationToken = undefined;
+    user.pendingEmailVerificationExpires = undefined;
+
+    await user.save();
+
+    if (user.employee) {
+      await Employee.findByIdAndUpdate(user.employee, {
+        email: newEmail,
+      });
+    } else {
+      await Employee.findOneAndUpdate(
+        { email: oldEmail },
+        { email: newEmail }
+      );
+    }
+
+    return res.status(200).json({
+      message:
+        "Admin email changed successfully. Please use the new email for your next login.",
+    });
+  } catch (error) {
+    console.error("Verify new Admin email error:", error);
+
+    return res.status(500).json({
+      message:
+        "Unable to verify the new email right now.",
+    });
+  }
+};
+
+const createAdmin = async (req, res) => {
+  try {
+    if (req.user?.role !== "Admin") {
+      return res.status(403).json({
+        message: "Only Admin can create another Admin",
+      });
+    }
+
+    const {
+      name,
+      email,
+      password,
+      jobRole,
+      department,
+    } = req.body;
+
+    if (!name?.trim() || !email?.trim() || !password) {
+      return res.status(400).json({
+        message: "Name, email and password are required",
+      });
+    }
+
+    if (password.length < 6) {
+      return res.status(400).json({
+        message: "Password must be at least 6 characters",
+      });
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+
+    const existingUser = await User.findOne({
+      email: normalizedEmail,
+    });
+
+    if (existingUser) {
+      return res.status(400).json({
+        message: "User with this email already exists",
+      });
+    }
+
+    const existingEmployee = await Employee.findOne({
+      email: normalizedEmail,
+    });
+
+    if (existingEmployee) {
+      return res.status(400).json({
+        message:
+          "An Employee Profile already exists with this email",
+      });
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const verificationToken =
+      crypto.randomBytes(32).toString("hex");
+
+    const hashedVerificationToken = crypto
+      .createHash("sha256")
+      .update(verificationToken)
+      .digest("hex");
+
+    const verificationExpires =
+      Date.now() + 24 * 60 * 60 * 1000;
+
+    const employee = await Employee.create({
+      name: name.trim(),
+      role: jobRole?.trim() || "Administrator",
+      department:
+        department?.trim() || "Administration",
+      email: normalizedEmail,
+      status: "Inactive",
+    });
+
+    try {
+      const user = await User.create({
+        name: name.trim(),
+        email: normalizedEmail,
+        password: hashedPassword,
+        role: "Admin",
+        employee: employee._id,
+        department:
+          department?.trim() || "Administration",
+        registrationStatus: "Approved",
+        isActive: false,
+        emailVerified: false,
+        emailVerificationToken: hashedVerificationToken,
+        emailVerificationExpires: verificationExpires,
+      });
+
+      const verificationUrl =
+        `${process.env.FRONTEND_URL}/verify-email/${verificationToken}`;
+
+      const response = await fetch(
+        "https://api.brevo.com/v3/smtp/email",
+        {
+          method: "POST",
+          headers: {
+            accept: "application/json",
+            "api-key": process.env.BREVO_API_KEY,
+            "content-type": "application/json",
+          },
+          body: JSON.stringify({
+            sender: {
+              name: process.env.BREVO_FROM_NAME,
+              email: process.env.BREVO_FROM_EMAIL,
+            },
+            to: [{ email: user.email }],
+            subject:
+              "Verify your EmployeeHub Admin account",
+            textContent: `Your EmployeeHub Admin account was created. Verify your email by opening this link: ${verificationUrl}`,
+            htmlContent: `
+              <p>Your EmployeeHub Admin account has been created.</p>
+              <p><a href="${verificationUrl}">Verify Email</a></p>
+              <p>This link expires in 24 hours.</p>
+            `,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        throw new Error(
+          `Brevo verification email failed: ${errorData}`
+        );
+      }
+
+      return res.status(201).json({
+        message:
+          "Admin account created. Verification email sent successfully.",
+      });
+    } catch (error) {
+      await User.deleteOne({
+        email: normalizedEmail,
+      });
+
+      await Employee.findByIdAndDelete(employee._id);
+
+      throw error;
+    }
+  } catch (error) {
+    console.error("Create Admin error:", error);
+
+    return res.status(500).json({
+      message: "Unable to create Admin account",
+    });
+  }
+};
 
 module.exports = {
   register,
@@ -777,4 +1385,8 @@ module.exports = {
   rejectHr,
   forgotPassword,
   resetPassword,
+  verifyEmail,
+  requestAdminEmailChange,
+  verifyNewAdminEmail,
+  createAdmin,
 };

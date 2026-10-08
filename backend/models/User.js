@@ -28,6 +28,7 @@ const userSchema = new mongoose.Schema(
       default: "Employee",
     },
 
+    // Password reset
     resetPasswordToken: {
       type: String,
       default: undefined,
@@ -38,14 +39,41 @@ const userSchema = new mongoose.Schema(
       default: undefined,
     },
 
-    /*
-    =====================================================
-    LINK USER TO EMPLOYEE
-    =====================================================
-    For Employee users, this stores the corresponding
-    Employee document ID.
-    */
+    // Email verification
+    emailVerified: {
+      type: Boolean,
+      default: false,
+    },
 
+    emailVerificationToken: {
+      type: String,
+      default: undefined,
+    },
+
+    emailVerificationExpires: {
+      type: Date,
+      default: undefined,
+    },
+
+    // Admin email change
+    pendingEmail: {
+      type: String,
+      default: undefined,
+      lowercase: true,
+      trim: true,
+    },
+
+    pendingEmailVerificationToken: {
+      type: String,
+      default: undefined,
+    },
+
+    pendingEmailVerificationExpires: {
+      type: Date,
+      default: undefined,
+    },
+
+    // User ↔ Employee relationship
     employee: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "Employee",
@@ -58,15 +86,21 @@ const userSchema = new mongoose.Schema(
       trim: true,
     },
 
+    // HR approval status
     registrationStatus: {
       type: String,
       enum: ["Pending", "Approved", "Rejected"],
       default: "Approved",
     },
 
+    // Account status
+    // IMPORTANT:
+    // New accounts start inactive.
+    // Controllers explicitly activate them after
+    // verification/approval.
     isActive: {
       type: Boolean,
-      default: true,
+      default: false,
     },
   },
   {
